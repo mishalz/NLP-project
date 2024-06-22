@@ -2,6 +2,9 @@ import nltk
 import spacy
 from pathlib import Path
 import os
+import pandas as pd
+import re
+import string
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -37,13 +40,24 @@ def count_syl(word, d):
     pass
 
 
-def read_novels(path=Path.cwd() / "p1-texts" / "novels"):
+def read_novels(path=Path.cwd() / "p1-texts" / "novels") -> pd.DataFrame:
     """Reads texts from a directory of .txt files and returns a DataFrame with the text, title,
     author, and year"""
-    print(path)
-    for filename in os.listdir(path):
-        print(filename)
+    data_list=[]
 
+    for filename in os.listdir(path):
+
+        title,author,year = filename.split('-')
+        title = ' '.join(title.split('_'))
+        year = int(year.rstrip('.txt'))
+        with open(os.path.join(path, filename)) as file:
+            text = file.read()
+        item_list = [text,title,author,year]
+
+        data_list.append(item_list)
+
+    data_dataframe = pd.DataFrame(data=data_list, columns=['text','title','author','year'])
+    return data_dataframe.sort_values(by='year', ignore_index=True)
 
 def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle"):
     """Parses the text of a DataFrame using spaCy, stores the parsed docs as a column and writes 
@@ -53,13 +67,26 @@ def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle"):
 
 def nltk_ttr(text):
     """Calculates the type-token ratio of a text. Text is tokenized using nltk.word_tokenize."""
-    pass
+    tokens = nltk.word_tokenize(text)
 
+    #remove punctuations from the tokens
+    remove_punc = re.compile('[%s]' % re.escape(string.punctuation))
+    tokens = [remove_punc.sub('', token) for token in tokens]
+    
+    #calculating type token ratio for the text
+    total_no_of_tokens = len(tokens)
+    total_no_of_types = len(set(tokens))
+
+    #type-token ratio
+    ttr = total_no_of_tokens/total_no_of_types
+
+    return ttr
+    
 
 def get_ttrs(df):
     """helper function to add ttr to a dataframe"""
     results = {}
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         results[row["title"]] = nltk_ttr(row["text"])
     return results
 
@@ -98,11 +125,11 @@ if __name__ == "__main__":
     path = Path.cwd() / "p1-texts" / "novels"
     print(path)
     df = read_novels(path) # this line will fail until you have completed the read_novels function above.
-    #print(df.head())
-    #nltk.download("cmudict")
+    print(df.head())
+    nltk.download("cmudict")
     #parse(df)
     #print(df.head())
-    #print(get_ttrs(df))
+    print(get_ttrs(df))
     #print(get_fks(df))
     #df = pd.read_pickle(Path.cwd() / "pickles" /"name.pickle")
     # print(get_subjects(df))
