@@ -12,7 +12,7 @@ nlp.max_length = 2000000
 
 
 
-def fk_level(text, d):
+def fk_level(text: str, dictionary:dict) -> float:
     """Returns the Flesch-Kincaid Grade Level of a text (higher grade is more difficult).
     Requires a dictionary of syllables per word.
 
@@ -23,10 +23,16 @@ def fk_level(text, d):
     Returns:
         float: The Flesch-Kincaid Grade Level of the text. (higher grade is more difficult)
     """
-    pass
+    total_syllables = sum([count_syl(word_in_text,dictionary) for word_in_text in text])
+    
+    total_words = len(nltk.word_tokenize(text))
+    total_sentences = len(nltk.sent_tokenize(text))
 
+    flesch_kincaid_grade = 0.39 * (total_words/total_sentences) + 11.8 * (total_syllables/total_words) - 15.59
 
-def count_syl(word, d):
+    return flesch_kincaid_grade
+
+def count_syl(word: str, dictionary: dict) -> int:
     """Counts the number of syllables in a word given a dictionary of syllables per word.
     if the word is not in the dictionary, syllables are estimated by counting vowel clusters
 
@@ -37,10 +43,28 @@ def count_syl(word, d):
     Returns:
         int: The number of syllables in the word.
     """
-    pass
+    if word in dictionary.keys():
+        return len([phenome for phenome in dictionary[word][0] if phenome[-1].isdigit()])
+    else:
+        syllables = 0
+        vowels = 'aeiou'
 
+        if word[0] in vowels:
+            syllables+=1
 
-def read_novels(path=Path.cwd() / "p1-texts" / "novels") -> pd.DataFrame:
+        for index in range(1,len(word)):
+            if word[index] in vowels and word[index-1] not in vowels:
+                syllables+=1
+        
+        if word.endswith('e'):
+            syllables=-1
+        
+        if syllables == 0:
+            syllables = 1
+        
+        return syllables
+
+def read_novels(path: Path = Path.cwd() / "p1-texts" / "novels") -> pd.DataFrame:
     """Reads texts from a directory of .txt files and returns a DataFrame with the text, title,
     author, and year"""
     data_list=[]
@@ -65,7 +89,7 @@ def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle"):
     pass
 
 
-def nltk_ttr(text):
+def nltk_ttr(text: str) -> float:
     """Calculates the type-token ratio of a text. Text is tokenized using nltk.word_tokenize."""
     tokens = nltk.word_tokenize(text)
 
@@ -91,7 +115,7 @@ def get_ttrs(df):
     return results
 
 
-def get_fks(df):
+def get_fks(df: pd.DataFrame) -> dict:
     """helper function to add fk scores to a dataframe"""
     results = {}
     cmudict = nltk.corpus.cmudict.dict()
@@ -123,14 +147,13 @@ if __name__ == "__main__":
     uncomment the following lines to run the functions once you have completed them
     """
     path = Path.cwd() / "p1-texts" / "novels"
-    print(path)
     df = read_novels(path) # this line will fail until you have completed the read_novels function above.
     print(df.head())
-    nltk.download("cmudict")
+    # nltk.download("cmudict")
     #parse(df)
     #print(df.head())
     print(get_ttrs(df))
-    #print(get_fks(df))
+    print(get_fks(df))
     #df = pd.read_pickle(Path.cwd() / "pickles" /"name.pickle")
     # print(get_subjects(df))
     """ 
