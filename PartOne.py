@@ -8,6 +8,7 @@ import string
 import pickle
 import collections
 import spacy.tokens
+from math import log
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -109,7 +110,7 @@ def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle") -> pd
         parsed_texts.append(docs)
     
     #adding the parsed text as a column
-    df['parsed_text'] = parsed_texts
+    df['parsed'] = parsed_texts
 
     #writing out to the pickle file
     pickle_path = os.path.join(store_path, out_name)
@@ -156,31 +157,71 @@ def get_fks(df: pd.DataFrame) -> dict:
 
 def subjects_by_verb_pmi(doc, target_verb):
     """Extracts the most common subjects of a given verb in a parsed document. Returns a list."""
-    pass
+    #get all subjects in the text
+    all_subjects=get_all_subjects(doc)
 
+    #get all subjects that occur with the target_verb
+    subjects_with_verb = get_subjects_with_verb(doc,target_verb)
 
+    #get the count of the verb occuring in the text
+    verb_count = sum(1 for token in doc if token.lemma_==target_verb)
 
-def subjects_by_verb_count(doc, verb):
-    """Extracts the most common subjects of a given verb in a parsed document. Returns a list."""
-    pass
+    #total number of tokens in the doc
+    total_token_count = len(doc)
 
+    pmi_scores = calculate_pmi(all_subjects,subjects_with_verb,verb_count,total_token_count)
+    sorted_pmi_scores =sorted(pmi_scores.items(), key=lambda x:x[1], reverse=True)
+    return [subject_score_tuple[0] for subject_score_tuple in sorted_pmi_scores][0:10]
 
-def get_subjects(df: pd.DataFrame):
-    """helper function to get subjects for each novel in the dataframe"""
-    for _, row in df.iterrows():
-        print(row["title"])
-        print(subject_counts(row["parsed_text"]))
+def calculate_pmi(subject_frequency_dict, subjects_with_verb_frequency_dict, verb_frequency, total_token_count) -> dict:
+    """helper function to calculate the pointwise mutual information for a specific subject with the target verb"""
+    pmi_scores={}
+    for subject, subject_with_verb in subjects_with_verb_frequency_dict.items():
+        prob_subject = subject_frequency_dict[subject] / total_token_count
+        prob_subject_with_verb = subject_with_verb / total_token_count
+        prob_verb = verb_frequency / total_token_count
 
+        pmi = log(prob_subject_with_verb/(prob_subject * prob_verb),2)
+        pmi_scores[subject] = pmi
+    return pmi_scores
 
-def subject_counts(doc: spacy.tokens.doc.Doc) -> list:
-    """Extracts the most common subjects in a parsed document. Returns a list of tuples."""
+def get_all_subjects(doc: spacy.tokens.doc.Doc) -> collections.Counter:
+    """helper function to get a list of all subjects in a text"""
+
     subjects = []
 
     for token in doc:
         if token.dep_ in ('nsubj','nsubjpass'):
             subjects.append(token.text)
+    subject_frequency_dict = collections.Counter(subjects)
+    return subject_frequency_dict
+
+
+def get_subjects_with_verb(doc: spacy.tokens.doc.Doc, verb:str) -> collections.Counter:
+    """helper function to get a list of all subjects in a text that occur with a specific verb"""
+
+    subjects = []
+
+    for token in doc:
+        if token.lemma_ == verb and list(token.children):
+            for child in token.children:
+                if child.dep_ in ('nsubj','nsubjpass'):
+                    subjects.append(child.text)
+
 
     subject_frequency_dict = collections.Counter(subjects)
+    return subject_frequency_dict
+
+
+def most_common_subjects_by_verb_count(doc: spacy.tokens.doc.Doc, verb:str) -> list:
+    """Extracts the most common subjects of a given verb in a parsed document. Returns a list."""
+    subject_frequency_dict = get_subjects_with_verb(doc,verb)
+    most_common_subjects = [tuple[0] for tuple in subject_frequency_dict.most_common(10)]
+    return most_common_subjects
+
+def most_common_subject_counts(doc: spacy.tokens.doc.Doc) -> list:
+    """Extracts the most common subjects in a parsed document. Returns a list of tuples."""
+    subject_frequency_dict = get_all_subjects(doc)
     most_common_subjects = subject_frequency_dict.most_common(10)
     return most_common_subjects
 
@@ -198,16 +239,20 @@ if __name__ == "__main__":
     # print(get_ttrs(df))
     # print(get_fks(df))
     df = pd.read_pickle(Path.cwd() / "pickles" /"parsed.pickle")
-    get_subjects(df)
-    """ 
-    for i, row in df.iterrows():
-        print(row["title"])
-        print(subjects_by_verb_count(row["parsed"], "say"))
-        print("\n")
+ 
+    # for _, row in df.iterrows():
+    #     print(row["title"])
+    #     print(most_common_subject_counts(row["parsed"]))
+    #     print("\n")
 
+    # for i, row in df.iterrows():
+    #     print(row["title"])
+    #     print(most_common_subjects_by_verb_count(row["parsed"], "say"))
+    #     print("\n")
+ 
     for i, row in df.iterrows():
         print(row["title"])
         print(subjects_by_verb_pmi(row["parsed"], "say"))
         print("\n")
-    """
+
 
