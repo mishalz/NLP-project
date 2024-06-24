@@ -5,6 +5,9 @@ import os
 import pandas as pd
 import re
 import string
+import pickle
+import collections
+import spacy.tokens
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -71,22 +74,49 @@ def read_novels(path: Path = Path.cwd() / "p1-texts" / "novels") -> pd.DataFrame
 
     for filename in os.listdir(path):
 
+        #extracting the title, author and year from the file title
         title,author,year = filename.split('-')
         title = ' '.join(title.split('_'))
         year = int(year.rstrip('.txt'))
+
         with open(os.path.join(path, filename)) as file:
             text = file.read()
+        
+        #creating a for each novel
         item_list = [text,title,author,year]
 
         data_list.append(item_list)
 
+    #creating a dataframe from list of lists.
     data_dataframe = pd.DataFrame(data=data_list, columns=['text','title','author','year'])
+    #returning the sorted dataframe
     return data_dataframe.sort_values(by='year', ignore_index=True)
 
-def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle"):
+def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle") -> pd.DataFrame:
     """Parses the text of a DataFrame using spaCy, stores the parsed docs as a column and writes 
     the resulting  DataFrame to a pickle file"""
-    pass
+
+    parsed_texts=[]
+    for _, row in df.iterrows():
+        text = row['text']
+        #dividing the file into chunks if it exceeds nlp.max_length
+        if len(text) > nlp.max_length:
+            chunks = [text[starting_point: starting_point + nlp.max_length] for starting_point in range(0,len(text),nlp.max_length)]
+            docs = [nlp(chunk) for chunk in chunks]
+        else: 
+            docs = nlp(text)
+        
+        parsed_texts.append(docs)
+    
+    #adding the parsed text as a column
+    df['parsed_text'] = parsed_texts
+
+    #writing out to the pickle file
+    pickle_path = os.path.join(store_path, out_name)
+    with open(pickle_path, 'wb') as file:
+        pickle.dump(df,file)
+        
+    return df
 
 
 def nltk_ttr(text: str) -> float:
@@ -119,7 +149,7 @@ def get_fks(df: pd.DataFrame) -> dict:
     """helper function to add fk scores to a dataframe"""
     results = {}
     cmudict = nltk.corpus.cmudict.dict()
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         results[row["title"]] = round(fk_level(row["text"], cmudict), 4)
     return results
 
@@ -135,27 +165,40 @@ def subjects_by_verb_count(doc, verb):
     pass
 
 
+def get_subjects(df: pd.DataFrame):
+    """helper function to get subjects for each novel in the dataframe"""
+    for _, row in df.iterrows():
+        print(row["title"])
+        print(subject_counts(row["parsed_text"]))
 
-def subject_counts(doc):
+
+def subject_counts(doc: spacy.tokens.doc.Doc) -> list:
     """Extracts the most common subjects in a parsed document. Returns a list of tuples."""
-    pass
+    subjects = []
 
+    for token in doc:
+        if token.dep_ in ('nsubj','nsubjpass'):
+            subjects.append(token.text)
+
+    subject_frequency_dict = collections.Counter(subjects)
+    most_common_subjects = subject_frequency_dict.most_common(10)
+    return most_common_subjects
 
 
 if __name__ == "__main__":
     """
     uncomment the following lines to run the functions once you have completed them
     """
-    path = Path.cwd() / "p1-texts" / "novels"
-    df = read_novels(path) # this line will fail until you have completed the read_novels function above.
-    print(df.head())
+    # path = Path.cwd() / "p1-texts" / "novels"
+    # df = read_novels(path) # this line will fail until you have completed the read_novels function above.
+    # print(df.head())
     # nltk.download("cmudict")
-    #parse(df)
-    #print(df.head())
-    print(get_ttrs(df))
-    print(get_fks(df))
-    #df = pd.read_pickle(Path.cwd() / "pickles" /"name.pickle")
-    # print(get_subjects(df))
+    # parse(df)
+    # print(df.head())
+    # print(get_ttrs(df))
+    # print(get_fks(df))
+    df = pd.read_pickle(Path.cwd() / "pickles" /"parsed.pickle")
+    get_subjects(df)
     """ 
     for i, row in df.iterrows():
         print(row["title"])
