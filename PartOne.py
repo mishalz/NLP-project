@@ -171,7 +171,8 @@ def subjects_by_verb_pmi(doc, target_verb):
 
     pmi_scores = calculate_pmi(all_subjects,subjects_with_verb,verb_count,total_token_count)
     sorted_pmi_scores =sorted(pmi_scores.items(), key=lambda x:x[1], reverse=True)
-    return [subject_score_tuple[0] for subject_score_tuple in sorted_pmi_scores][0:10]
+    # return [subject_score_tuple[0] for subject_score_tuple in sorted_pmi_scores][0:10]
+    return sorted_pmi_scores
 
 def calculate_pmi(subject_frequency_dict, subjects_with_verb_frequency_dict, verb_frequency, total_token_count) -> dict:
     """helper function to calculate the pointwise mutual information for a specific subject with the target verb"""
@@ -239,16 +240,17 @@ if __name__ == "__main__":
     # print(get_ttrs(df))
     # print(get_fks(df))
     df = pd.read_pickle(Path.cwd() / "pickles" /"parsed.pickle")
+    print(df['parsed'])
  
-    # for _, row in df.iterrows():
-    #     print(row["title"])
-    #     print(most_common_subject_counts(row["parsed"]))
-    #     print("\n")
+    for _, row in df.iterrows():
+        print(row["title"])
+        print(most_common_subject_counts(row["parsed"]))
+        print("\n")
 
-    # for i, row in df.iterrows():
-    #     print(row["title"])
-    #     print(most_common_subjects_by_verb_count(row["parsed"], "say"))
-    #     print("\n")
+    for i, row in df.iterrows():
+        print(row["title"])
+        print(most_common_subjects_by_verb_count(row["parsed"], "say"))
+        print("\n")
  
     for i, row in df.iterrows():
         print(row["title"])
