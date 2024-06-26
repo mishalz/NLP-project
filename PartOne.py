@@ -15,7 +15,6 @@ nlp = spacy.load("en_core_web_sm")
 nlp.max_length = 2000000
 
 
-
 def fk_level(text: str, dictionary:dict) -> float:
     """Returns the Flesch-Kincaid Grade Level of a text (higher grade is more difficult).
     Requires a dictionary of syllables per word.
@@ -53,16 +52,20 @@ def count_syl(word: str, dictionary: dict) -> int:
         syllables = 0
         vowels = 'aeiou'
 
+        #checking for the first letter of the word
         if word[0] in vowels:
             syllables+=1
 
+        #for each time a letter is a vowel and its previous letter is not a vowel, syllables is incremented
         for index in range(1,len(word)):
             if word[index] in vowels and word[index-1] not in vowels:
                 syllables+=1
         
+        #even though e is a vowel, when it appears at the end of a word, it does not create a separate sound
         if word.endswith('e'):
             syllables=-1
         
+        #if there are no vowels, the whole word is one syllable
         if syllables == 0:
             syllables = 1
         
@@ -83,13 +86,14 @@ def read_novels(path: Path = Path.cwd() / "p1-texts" / "novels") -> pd.DataFrame
         with open(os.path.join(path, filename)) as file:
             text = file.read()
         
-        #creating a for each novel
+        #creating a list for each novel
         item_list = [text,title,author,year]
-
+        
         data_list.append(item_list)
 
     #creating a dataframe from list of lists.
     data_dataframe = pd.DataFrame(data=data_list, columns=['text','title','author','year'])
+
     #returning the sorted dataframe
     return data_dataframe.sort_values(by='year', ignore_index=True)
 
@@ -98,6 +102,7 @@ def parse(df, store_path=Path.cwd() / "pickles", out_name="parsed.pickle") -> pd
     the resulting  DataFrame to a pickle file"""
 
     parsed_texts=[]
+
     for _, row in df.iterrows():
         text = row['text']
         #dividing the file into chunks if it exceeds nlp.max_length
@@ -128,7 +133,7 @@ def nltk_ttr(text: str) -> float:
     remove_punc = re.compile('[%s]' % re.escape(string.punctuation))
     tokens = [remove_punc.sub('', token) for token in tokens]
     
-    #calculating type token ratio for the text
+    #calculating values for the type token ratio of the text
     total_no_of_tokens = len(tokens)
     total_no_of_types = len(set(tokens))
 
@@ -178,6 +183,7 @@ def calculate_pmi(subject_frequency_dict, subjects_with_verb_frequency_dict, ver
     """helper function to calculate the pointwise mutual information for a specific subject with the target verb"""
     pmi_scores={}
     for subject, subject_with_verb in subjects_with_verb_frequency_dict.items():
+        #PMI calculations
         prob_subject = subject_frequency_dict[subject] / total_token_count
         prob_subject_with_verb = subject_with_verb / total_token_count
         prob_verb = verb_frequency / total_token_count
@@ -194,6 +200,7 @@ def get_all_subjects(doc: spacy.tokens.doc.Doc) -> collections.Counter:
     for token in doc:
         if token.dep_ in ('nsubj','nsubjpass'):
             subjects.append(token.text)
+
     subject_frequency_dict = collections.Counter(subjects)
     return subject_frequency_dict
 
@@ -217,13 +224,13 @@ def get_subjects_with_verb(doc: spacy.tokens.doc.Doc, verb:str) -> collections.C
 def most_common_subjects_by_verb_count(doc: spacy.tokens.doc.Doc, verb:str) -> list:
     """Extracts the most common subjects of a given verb in a parsed document. Returns a list."""
     subject_frequency_dict = get_subjects_with_verb(doc,verb)
-    most_common_subjects = [tuple[0] for tuple in subject_frequency_dict.most_common(10)]
+    most_common_subjects = [tuple[0] for tuple in subject_frequency_dict.most_common(10)] #to return a list
     return most_common_subjects
 
 def most_common_subject_counts(doc: spacy.tokens.doc.Doc) -> list:
     """Extracts the most common subjects in a parsed document. Returns a list of tuples."""
     subject_frequency_dict = get_all_subjects(doc)
-    most_common_subjects = subject_frequency_dict.most_common(10)
+    most_common_subjects = subject_frequency_dict.most_common(10) #returning a list of tuples
     return most_common_subjects
 
 
@@ -232,6 +239,7 @@ if __name__ == "__main__":
     uncomment the following lines to run the functions once you have completed them
     """
     # path = Path.cwd() / "p1-texts" / "novels"
+    # print(path)
     # df = read_novels(path) # this line will fail until you have completed the read_novels function above.
     # print(df.head())
     # nltk.download("cmudict")
@@ -240,7 +248,6 @@ if __name__ == "__main__":
     # print(get_ttrs(df))
     # print(get_fks(df))
     df = pd.read_pickle(Path.cwd() / "pickles" /"parsed.pickle")
-    print(df['parsed'])
  
     for _, row in df.iterrows():
         print(row["title"])
