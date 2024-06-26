@@ -11,6 +11,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import time
+from typing import Callable
 
 nlp = spacy.load("en_core_web_sm")
 nltk.download('stopwords')
@@ -19,7 +20,7 @@ nltk.download('wordnet')
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
 
-def get_clean_dataframe(dataframe: pd.DataFrame):
+def get_clean_dataframe(dataframe: pd.DataFrame) -> pd.DataFrame:
 
     #replacing the value of Labour (Co-op) to Labour in the party column
     dataframe['party'] = dataframe['party'].replace('Labour (Co-op)','Labour')
@@ -40,9 +41,9 @@ def get_clean_dataframe(dataframe: pd.DataFrame):
 
     return dataframe
 
-def get_data_for_training(dataframe: pd.DataFrame,ngrams=(1,1), custom_tokenizer=None, custom_stop_words = "english"):
+def get_data_for_training(dataframe: pd.DataFrame,ngrams:tuple=(1,1), custom_tokenizer:Callable=None, custom_stop_words: list | str = "english"):
         
-        #to have an array of the party values as the target variable
+        #to have an array of the party and speech values
         y = dataframe['party'].to_numpy()
         x = dataframe['speech'].to_numpy()
 
@@ -59,9 +60,13 @@ def get_data_for_training(dataframe: pd.DataFrame,ngrams=(1,1), custom_tokenizer
         return x_train_vectors, y_train, x_test_vectors,y_test
 
 def train_random_forest_classifier(x_train,y_train,x_test,y_test,class_weight = 'balanced'):
+
+    #defining the classifier
     classifier = RandomForestClassifier(n_estimators=400, class_weight=class_weight)
+    #training the classifier on the train data
     classifier.fit(x_train, y_train)
 
+    #making predictions from the test speeches
     y_predictions = classifier.predict(x_test)
      
     print('Random Forest Classification Report')
@@ -69,9 +74,13 @@ def train_random_forest_classifier(x_train,y_train,x_test,y_test,class_weight = 
     print(f"Macro-Average F1 Score: {f1_score(y_test, y_predictions, average='macro')}\n")
     
 def train_SVM_classifier(x_train,y_train,x_test,y_test):
+
+    #defining the classifier
     classifier = SVC(kernel='linear')
+    #training the classifier on the train data
     classifier.fit(x_train, y_train)
 
+    #making predictions from the test speeches
     y_predictions = classifier.predict(x_test)
      
     print('SVM Classification Report')
@@ -106,7 +115,6 @@ def custom_tokenizer(text):
     return tokens
 
 
-
 if __name__ == "__main__":
     dataframe = pd.read_csv('p2-texts/hansard40000.csv')
     
@@ -120,34 +128,34 @@ if __name__ == "__main__":
     total = dataframe.shape[0]
 
     for index,value in party_counts.items():
-        class_weights[index] = total/value
+        class_weights[index] = total/value #the ratio of the total instances to the instances of a class
 
 
     # #Part b
     x_train, y_train, x_test, y_test = get_data_for_training(dataframe)
 
     #Part c
-    start = time.perf_counter()
+    # start = time.perf_counter()
     train_random_forest_classifier(x_train,y_train,x_test,y_test,class_weights)
     train_SVM_classifier(x_train,y_train,x_test,y_test)
-    end = time.perf_counter()
-    print(f'Time took to train the Random forest and SVM classifier: {end - start} second(s)\n\n')
+    # end = time.perf_counter()
+    # print(f'Time took to train the Random forest and SVM classifier: {end - start} second(s)\n\n')
 
     #Part d
-    start = time.perf_counter()
+    # start = time.perf_counter()
     x_train_with_grams, y_train_with_grams, x_test_with_grams, y_test_with_grams = get_data_for_training(dataframe,(1,3))
     train_random_forest_classifier(x_train_with_grams, y_train_with_grams, x_test_with_grams, y_test_with_grams,class_weights)
     train_SVM_classifier(x_train_with_grams, y_train_with_grams, x_test_with_grams, y_test_with_grams)
-    end = time.perf_counter()
-    print(f'Time took to train the Random forest and SVM classifier with bigrams and trigrams: {end - start} second(s)\n\n')
+    # end = time.perf_counter()
+    # print(f'Time took to train the Random forest and SVM classifier with bigrams and trigrams: {end - start} second(s)\n\n')
 
     # Part e
     # this is done to convert the stop words into the same pattern as our tokens to avoid the "Your stop_words may be inconsistent with your preprocessing" warning
     processes_stop_words = list(set(custom_tokenizer(' '.join(stop_words))))
 
-    start = time.perf_counter()
+    # start = time.perf_counter()
     x_train_with_tokenizer, y_train_with_tokenizer, x_test_with_tokenizer, y_test_with_tokenizer = get_data_for_training(dataframe,(1,3), custom_tokenizer, processes_stop_words)
     train_random_forest_classifier(x_train_with_tokenizer, y_train_with_tokenizer, x_test_with_tokenizer, y_test_with_tokenizer,class_weights)
     train_SVM_classifier(x_train_with_tokenizer, y_train_with_tokenizer, x_test_with_tokenizer, y_test_with_tokenizer)
-    end = time.perf_counter()
-    print(f'Time took to train the Random forest and SVM classifier with custom tokenizer: {end - start} second(s)\n\n')
+    # end = time.perf_counter()
+    # print(f'Time took to train the Random forest and SVM classifier with custom tokenizer: {end - start} second(s)\n\n')
